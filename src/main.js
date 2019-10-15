@@ -1,5 +1,5 @@
 import Vue from 'vue';
-import 'vant/lib/index.css';
+import '@/assets/index.css';
 import store from './store';
 import router from './router';
 import App from './App.vue';
