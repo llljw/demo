@@ -19,7 +19,9 @@ import {Image} from 'vant';
 import {Toast} from 'vant';
 import {Panel} from 'vant';
 import {Sku} from 'vant';
+import { Popup } from 'vant';
 
+Vue.use(Popup);
 Vue.use(Sku);
 Vue.use(Panel);
 Vue.use(Toast);

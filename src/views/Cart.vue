@@ -3,93 +3,246 @@
     <!--头部导航栏-->
     <top-back :content="title"></top-back>
 
-    <van-checkbox-group class="card-goods" v-model="checkedGoods">
+    <!--商品-->
+    <van-checkbox-group class="card-goods" v-model="result" ref="checkboxGroup">
       <van-checkbox
         class="card-goods__item"
         v-for="item in goods"
         :key="item.id"
-        :name="item.id"
+        :name="item.productId"
+        checked-color="#07c160"
+        @click="checkOne(item.productId,item.productChecked)"
       >
         <van-card
-          :title="item.title"
-          :desc="item.desc"
-          :num="item.num"
-          :price="formatPrice(item.price)"
-          :thumb="item.thumb"
+          :title="item.name"
+          :price="item.price"
+          :thumb="item.mainImage"
+          :num="item.quantity"
         />
       </van-checkbox>
     </van-checkbox-group>
+
+    <!--结算-->
     <van-submit-bar
       id="bt"
-      :price="totalPrice"
-      :disabled="!checkedGoods.length"
+      :price="price*100"
+      :disabled="!result.length"
       :button-text="submitBarText"
       @submit="onSubmit"
-    />
+    >
+      <div id="allchecked">
+        <van-checkbox
+          v-model="checked"
+          @click="checkAll"
+          checked-color="#07c160"
+        />
+      </div>
+
+    </van-submit-bar>
+
+
+    <br/>
+    <br/>
+    <br/>
   </div>
 </template>
 
 <script>
-import TopBack from '@/components/TopBack.vue';
+  import TopBack from '@/components/TopBack.vue';
+  import axios from 'axios';
+  import store from '@/store';
 
-export default {
-  name: 'Cart',
-  components: { TopBack },
-  data() {
-    return {
-      checkedGoods: ['1', '2', '3'],
-      title: '购物车',
-      goods: [{
-        id: '1',
-        title: '进口香蕉',
-        desc: '约250g，2根',
-        price: 200,
-        num: 1,
-        thumb: 'https://img.yzcdn.cn/public_files/2017/10/24/2f9a36046449dafb8608e99990b3c205.jpeg',
-      }, {
-        id: '2',
-        title: '陕西蜜梨',
-        desc: '约600g',
-        price: 690,
-        num: 1,
-        thumb: 'https://img.yzcdn.cn/public_files/2017/10/24/f6aabd6ac5521195e01e8e89ee9fc63f.jpeg',
-      }, {
-        id: '3',
-        title: '美国伽力果',
-        desc: '约680g/3个',
-        price: 2680,
-        num: 1,
-        thumb: 'https://img.yzcdn.cn/public_files/2017/10/24/320454216bbe9e25c7651e1fa51b31fd.jpeg',
-      }],
-    };
-  },
-  computed: {
-    submitBarText() {
-      const count = this.checkedGoods.length;
-      return `结算${count ? `(${count})` : ''}`;
+  export default {
+    name: 'Cart',
+    components: { TopBack },
+    data() {
+      return {
+        //购物车商品id
+        result: [],
+        //购物车列表
+        goods: '',
+        title: '购物车',
+        checked: false,
+        user: store.state.users,
+        price: ''
+      };
     },
-    totalPrice() {
-      return this.goods.reduce((total, item) => total + (this.checkedGoods.indexOf(item.id) !== -1 ? item.price : 0), 0);
+    computed: {
+      submitBarText() {
+        const count = this.result.length;
+        return `结算${count ? `(${count})` : ''}`;
+      },
+
     },
-  },
-  methods: {
-    formatPrice(price) {
-      return (price / 100).toFixed(2);
+    //刷新
+
+    methods: {
+      //选中商品or取消选中
+      checkOne(productId, check) {
+        //保存当前对象
+        var this_ = this;
+        console.log(productId, check);
+        //封装传向后端的数据
+        const params = new URLSearchParams();
+
+        if (check === 0) {
+          params.append('productId', productId);
+          params.append('check', 1);
+          axios.post('/portal/cart/select.do', params)
+            .then(function (datas) {
+              // console.log(datas);
+              this_.check = 1;
+              this_.price = datas.data.data.cartTotalPrice;
+            });
+          axios.post('/portal/cart/list.do')
+            .then(function (datas) {
+              //获取状态码
+              var status = datas.data.status;
+              if (status === 0) {
+                this_.goods = datas.data.data.cartProductVoList;
+              }
+            });
+        } else {
+          params.append('productId', productId);
+          params.append('check', 0);
+          axios.post('/portal/cart/un_select.do', params)
+            .then(function (datas) {
+              // console.log(datas);
+              this_.check = 0;
+              this_.price = 0.00;
+            });
+          axios.post('/portal/cart/list.do')
+            .then(function (datas) {
+              //获取状态码
+              var status = datas.data.status;
+              if (status === 0) {
+                this_.goods = datas.data.data.cartProductVoList;
+              }
+            });
+        }
+      },
+      //全选or取消全选
+      checkAll() {
+        //保存当前对象
+        const this_ = this;
+        if (this_.checked === false) {
+          // console.log(this_.checked);
+          // 封装前端传递给后端的数据
+          const params = new URLSearchParams();
+          params.append('check', 1);
+
+          axios.post('/portal/cart/select_all.do', params)
+            .then(function (datas) {
+              // console.log(datas);
+              this_.price = datas.data.data.cartTotalPrice;
+              //获取状态码
+              var status = datas.data.status;
+              if (status !== 0) {
+                //弹出错误信息
+                this_.$dialog.alert({
+                  message: datas.data.msg()
+                });
+              }
+            });
+
+          this.$refs.checkboxGroup.toggleAll(1);
+          this.checked = 1;
+
+        } else {
+          // 封装前端传递给后端的数据
+          const params = new URLSearchParams();
+          params.append('check', 0);
+
+          axios.post('/portal/cart/un_select_all.do', params)
+            .then(function (datas) {
+              // console.log(datas);
+              this_.price = 0.00;
+              //获取状态码
+              var status = datas.data.status;
+              if (status !== 0) {
+                //弹出错误信息
+                this_.$dialog.alert({
+                  message: datas.data.msg()
+                });
+              }
+            });
+          this.$refs.checkboxGroup.toggleAll();
+          this.checked = 0;
+        }
+
+      },
+      formatPrice(price) {
+        return (price / 100).toFixed(2);
+      },
+      onSubmit() {
+        Toast('点击结算');
+      },
+
+      //获取商品列表
+      getProductList() {
+        // 保存当前对象
+        const this_ = this;
+        axios.post('/portal/cart/list.do')
+          .then(function (datas) {
+            // console.log(datas);
+            //获取状态码
+            var status = datas.data.status;
+            if (status !== 0) {
+              //弹出错误信息
+              this_.$dialog.alert({
+                message: datas.data.msg
+              });
+              this_.$router.push({
+                path: '/login',
+              });
+            } else {
+              //赋值
+              this_.goods = datas.data.data.cartProductVoList;
+              //遍历
+              for (var i = 0; i < this_.goods.length; i++) {
+                if (this_.goods[i].productChecked === 1) {
+                  this_.result.push(this_.goods[i].productId);
+                }
+              }
+            }
+          });
+
+      }
     },
-    onSubmit() {
-      Toast('点击结算');
-    },
-  },
-};
+    activated() {
+      this.getProductList();
+    }
+
+  };
 </script>
 
 <style lang="less">
+  #fxk {
+    background-color: #fafafa;
+  }
+
+  #allchecked {
+    /*width: 150px !important;*/
+    float: left !important;
+    margin-left: 10px;
+  }
+
+  /*.f {*/
+  /*padding-left: 10px !important;*/
+  /*padding-top: 43px !important;*/
+  /*padding-bottom: 43px !important;*/
+  /*background-color: #fafafa;*/
+  /*}*/
+
   #bt {
     bottom: 50px !important;
   }
 
+  .van-card:not(:first-child) {
+    margin-top: 0 !important;
+  }
+
   .card-goods {
-    padding: 10px 0;
     background-color: #fff;
     &__item {
       position: relative;

@@ -8,11 +8,17 @@ export default new Vuex.Store({
     users: '',
     msg: '',
     token: '',
+    show: false
   },
   mutations: {
+    setshow() {
+      if (this.state.show === false) {
+        this.state.show = true;
+      } else {
+        this.state.show = false;
+      }
 
+    }
   },
-  actions: {
-
-  },
+  actions: {},
 });
